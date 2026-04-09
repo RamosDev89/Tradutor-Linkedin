@@ -196,3 +196,22 @@ textarea::placeholder {
     height: 220px;
   }
 }
+
+footer {
+  text-align: center;
+  padding: 40px 24px;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+footer a {
+  color: #0A66C2;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+footer a:hover {
+  color: #004182;
+  text-decoration: underline;
+}
