@@ -34,27 +34,43 @@ Regras:
 Texto:
 ${text}`;
 
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+  const body = JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] });
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-      }),
-    });
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY_MS = 2000;
 
-    const data = await response.json();
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
 
-    if (!response.ok) {
-      return res.status(500).json({ error: data.error?.message || 'Erro na API.' });
+      const data = await response.json();
+
+      if (response.status === 503 || data.error?.message?.includes('high demand')) {
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, RETRY_DELAY_MS * attempt));
+          continue;
+        }
+        return res.status(503).json({ error: 'Serviço temporariamente sobrecarregado. Tente novamente em alguns segundos.' });
+      }
+
+      if (!response.ok) {
+        return res.status(500).json({ error: data.error?.message || 'Erro na API.' });
+      }
+
+      const result = data.candidates[0].content.parts[0].text;
+      return res.json({ result });
+    } catch (err) {
+      if (attempt < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, RETRY_DELAY_MS * attempt));
+        continue;
+      }
+      return res.status(500).json({ error: 'Erro ao conectar com a API.' });
     }
-
-    const result = data.candidates[0].content.parts[0].text;
-    res.json({ result });
-  } catch (err) {
-    res.status(500).json({ error: 'Erro ao conectar com a API.' });
   }
 });
 
